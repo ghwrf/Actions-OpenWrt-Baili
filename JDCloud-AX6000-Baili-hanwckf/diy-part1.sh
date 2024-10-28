@@ -15,6 +15,6 @@
 
 # Add a feed source
 #echo 'src-git helloworld https://github.com/fw876/helloworld' >>feeds.conf.default
-echo 'src-git passwall https://github.com/xiaorouji/openwrt-passwall2' >>feeds.conf.default
+echo 'src-git passwall2 https://github.com/xiaorouji/openwrt-passwall2' >>feeds.conf.default
 #git clone https://github.com/messense/aliyundrive-webdav package/messense
 git clone https://github.com/destan19/OpenAppFilter package/OpenAppFilter
