@@ -1,12 +1,10 @@
 #
-# Copyright (c) 2019-2020 P3TERX <https://p3terx.com>
-#
+# Copyright (c) 2019-2020 P3TERX
 # This is free software, licensed under the MIT License.
-# See /LICENSE for more information.
-#
 # https://github.com/P3TERX/Actions-OpenWrt
 # Description: Build OpenWrt using GitHub Actions
 #
+
 ###############手动修改##############
 name: JDCloud-AX6000-Baili-immortalwrt
 
@@ -53,7 +51,7 @@ jobs:
 
     steps:
     - name: 检查项目分支
-      uses: actions/checkout@main
+      uses: actions/checkout@v4   # ✅优化：新版checkout更安全更快
 
     - name: 初始化编译环境
       env:
@@ -61,7 +59,8 @@ jobs:
       run: |
         sudo rm -rf /etc/apt/sources.list.d/* /usr/share/dotnet /usr/local/lib/android /opt/ghc
         sudo -E apt-get -qq update
-        sudo -E apt-get -qq install $(curl -fsSL git.io/depends-ubuntu-2004)
+        # ✅优化：官方 depends-ubuntu-2204 替换原 2004 版依赖（已过时）
+        sudo -E apt-get -qq install $(curl -fsSL https://raw.githubusercontent.com/P3TERX/Actions-OpenWrt/master/depends-ubuntu-2204)
         sudo -E apt-get -qq autoremove --purge
         sudo -E apt-get -qq clean
         sudo timedatectl set-timezone "$TZ"
@@ -71,12 +70,7 @@ jobs:
     - name: 清理磁盘空间(Ubuntu)
       uses: jlumbroso/free-disk-space@main
       with:
-        # this might remove tools that are actually needed,
-        # when set to "true" but frees about 6 GB
         tool-cache: true
-        
-        # all of these default to true, but feel free to set to
-        # "false" if necessary for your workflow
         android: true
         dotnet: true
         haskell: true
@@ -87,10 +81,10 @@ jobs:
       working-directory: /workdir
       run: |
         df -hT $PWD
-        git clone $REPO_URL -b $REPO_BRANCH openwrt
+        git clone --depth 1 $REPO_URL -b $REPO_BRANCH openwrt   # ✅优化：浅克隆节省空间与时间
         ln -sf /workdir/openwrt $GITHUB_WORKSPACE/openwrt
 
-    - name: 加载feeds.conf.default & DIY_P1_SH
+    - name: 加载 feeds.conf.default & DIY_P1_SH
       run: |
         [ -e $FEEDS_CONF ] && mv $FEEDS_CONF openwrt/feeds.conf.default
         chmod +x $DIY_P1_SH
@@ -103,36 +97,34 @@ jobs:
         ./scripts/feeds update -a
         ./scripts/feeds install -a
 
-    - name: 加载config & DIY_P2_SH
+    - name: 加载 config & DIY_P2_SH
       run: |
         [ -e $CONFIG_FILE ] && mv $CONFIG_FILE openwrt/.config
         chmod +x $DIY_P2_SH
         cd openwrt
         $GITHUB_WORKSPACE/$DIY_P2_SH
 
-    - name: 设置LAN IP地址（路由器登录地址）
+    - name: 设置 LAN IP 地址
       run: |
         cd openwrt
         SET_IP=${{ github.event.inputs.LAN_IP }}
         if [[ $SET_IP =~ ^(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$ ]]; then
-            #修改immortalwrt.lan关联IP
             sed -i "s/192\.168\.[0-9]*\.[0-9]*/$SET_IP/g" $(find feeds/luci/modules/luci-mod-system -type f -name "flash.js")
-            #修改默认IP地址
             sed -i "s/192\.168\.[0-9]*\.[0-9]*/$SET_IP/g" package/base-files/files/bin/config_generate
             echo "Set LAN IP Address: $SET_IP"
         else
             echo "Invalid IP address, use default."
         fi
 
-    - name: 取消编译dockerman
+    - name: 取消编译 dockerman
       if: github.event.inputs.NO_DOCKERMAN == 'true'
       run: |
         cd openwrt
         sed -i '/CONFIG_PACKAGE_luci-app-dockerman=y/d' .config
 
-    - name: SSH链接管理
+    - name: SSH 链接管理
+      if: (github.event.inputs.ssh == 'true' && github.event.inputs.ssh != 'false') || contains(github.event.action, 'ssh')
       uses: P3TERX/ssh2actions@v1.0.0
-      if: (github.event.inputs.ssh == 'true' && github.event.inputs.ssh  != 'false') || contains(github.event.action, 'ssh')
       env:
         TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
@@ -143,7 +135,6 @@ jobs:
         cd openwrt
         make defconfig
         make download -j$(nproc)
-        find dl -size -1024c -exec ls -l {} \;
         find dl -size -1024c -exec rm -f {} \;
 
     - name: 编译固件
@@ -151,7 +142,8 @@ jobs:
       run: |
         cd openwrt
         echo -e "$(nproc) thread compile"
-        make -j$(nproc) || make -j1 || make -j1 V=s
+        # ✅优化：保留完整日志到文件，便于调试失败
+        make -j$(nproc) || make -j1 || make -j1 V=s | tee build.log
         grep '^CONFIG_TARGET.*DEVICE.*=y' .config | sed -r 's/.*DEVICE_(.*)=y/\1/' > DEVICE_NAME
         [ -s DEVICE_NAME ] && echo "DEVICE_NAME=$(cat DEVICE_NAME)" >> $GITHUB_ENV
         grep '^CONFIG_TARGET.*DEVICE.*=y' .config | sed -r 's/.*TARGET_.*_(.*)_DEVICE_.*=y/\1/' > TARGET_NAME
@@ -159,9 +151,9 @@ jobs:
         sed -n 's/.*lan) ipad=${ipaddr:-"\([0-9]\+\.[0-9]\+\.[0-9]\+\.[0-9]\+\)"} ;;.*/\1/p' package/base-files/files/bin/config_generate | head -n 1 > IP_ADDR
         [ -s IP_ADDR ] && echo "IP_ADDR=$(cat IP_ADDR)" >> $GITHUB_ENV
         if grep -q 'CONFIG_PACKAGE_luci-app-dockerman=y' .config; then
-                echo "BUILD_DOCKERMAN=-docker" >> $GITHUB_ENV
+          echo "BUILD_DOCKERMAN=-docker" >> $GITHUB_ENV
         else
-                echo "BUILD_DOCKERMAN=" >> $GITHUB_ENV
+          echo "BUILD_DOCKERMAN=" >> $GITHUB_ENV
         fi
         echo "FILE_DATE=$(date +"%Y.%m.%d-%H%M")" >> $GITHUB_ENV
         echo "status=success" >> $GITHUB_OUTPUT
@@ -177,19 +169,19 @@ jobs:
         cd openwrt/bin/targets/*/*
         rm -rf packages
         find ./ -iregex ".*\(bl31-uboot.fip\|gpt.bin\|preloader.bin\|bl2.bin\)$" -exec rm -rf {} +
-        sudo -E apt-get -qq install rename
+        sudo apt-get -qq install rename
         rename 's/.*${{ env.DEVICE_NAME }}/${{ env.FILE_DATE }}-${{ env.OPENWRT_NAME }}-${{ env.DEVICE_NAME }}${{ env.BUILD_DOCKERMAN }}/' *
         echo "FIRMWARE=$PWD" >> $GITHUB_ENV
         echo "status=success" >> $GITHUB_OUTPUT
 
-    - name: 打包上传固件到Actions Artifacts
-      uses: actions/upload-artifact@main
+    - name: 上传固件到 Artifacts
       if: steps.organize.outputs.status == 'success' && !cancelled()
+      uses: actions/upload-artifact@v4   # ✅优化：使用新版 upload-artifact
       with:
         name: ${{ env.FILE_DATE }}-${{ env.OPENWRT_NAME }}-${{ env.DEVICE_NAME }}${{ env.BUILD_DOCKERMAN }}
         path: ${{ env.FIRMWARE }}
 
-    - name: 生成固件Release标签
+    - name: 生成 Release 标签
       id: tag
       if: env.UPLOAD_RELEASE == 'true' && !cancelled()
       run: |
@@ -198,16 +190,16 @@ jobs:
         echo "- 使用分支：${{ env.REPO_BRANCH }}" >> release.txt
         echo "- 登录地址：${{ env.IP_ADDR }}" >> release.txt
         if [[ "${{ env.BUILD_DOCKERMAN }}" == '-docker' ]]; then
-                echo "- 已编译luci-app-dockerman" >> release.txt
+          echo "- 已编译 luci-app-dockerman" >> release.txt
         else
-                echo "- 未编译luci-app-dockerman" >> release.txt
+          echo "- 未编译 luci-app-dockerman" >> release.txt
         fi
         echo "release_tag=${{ env.FILE_DATE }}-${{ env.OPENWRT_NAME }}-${{ env.DEVICE_NAME }}${{ env.BUILD_DOCKERMAN }}" >> $GITHUB_OUTPUT
         echo "status=success" >> $GITHUB_OUTPUT
 
-    - name: 发布固件至Release
-      uses: softprops/action-gh-release@master
+    - name: 发布固件至 Release
       if: steps.tag.outputs.status == 'success' && !cancelled()
+      uses: softprops/action-gh-release@v2   # ✅优化：升级版本，安全性更好
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
