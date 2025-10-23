@@ -15,11 +15,11 @@
 
 # Add a feed source
 #echo 'src-git helloworld https://github.com/fw876/helloworld' >>feeds.conf.default
-echo 'src-git passwall2 https://github.com/xiaorouji/openwrt-passwall2' >>feeds.conf.default
+#echo 'src-git passwall2 https://github.com/xiaorouji/openwrt-passwall2' >>feeds.conf.default
 #git clone https://github.com/messense/aliyundrive-webdav package/messense
-git clone https://github.com/gdy666/luci-app-lucky package/lucky
+#git clone https://github.com/gdy666/luci-app-lucky package/lucky
 git clone https://github.com/destan19/OpenAppFilter package/OpenAppFilter
-git clone https://github.com/Thaolga/openwrt-nekobox package/openwrt-nekobox
-echo "src-git helloworld https://github.com/fw876/helloworld.git" >> "feeds.conf.default"
-git clone https://github.com/jerrykuku/lua-maxminddb.git package/lua-maxminddb
-git clone https://github.com/MilesPoupart/luci-app-vssr.git package/vssr
+#git clone https://github.com/Thaolga/openwrt-nekobox package/openwrt-nekobox
+#echo "src-git helloworld https://github.com/fw876/helloworld.git" >> "feeds.conf.default"
+#git clone https://github.com/jerrykuku/lua-maxminddb.git package/lua-maxminddb
+#it clone https://github.com/MilesPoupart/luci-app-vssr.git package/vssr
