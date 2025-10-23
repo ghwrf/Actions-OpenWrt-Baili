@@ -17,7 +17,7 @@ on:
       LAN_IP:
         description: 'Set LAN IP Address'
         required: true
-        default: '192.168.1.1'
+        default: '192.168.2.1'
       NO_DOCKERMAN:
         description: 'Not build luci-app-dockerman'
         required: true
