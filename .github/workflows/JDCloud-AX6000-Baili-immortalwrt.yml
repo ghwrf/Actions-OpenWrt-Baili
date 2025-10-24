@@ -174,10 +174,9 @@ jobs:
         echo "FIRMWARE=$PWD" >> $GITHUB_ENV
         echo "status=success" >> $GITHUB_OUTPUT
 
-      - name: Get Kernel Verion
-        run: |
-          # 获取内核版本
-          echo "KVER=$(find ./action_build/dl -maxdepth 1 -name "linux-[4-6]\.*" | sort -r | head -n 1 | grep -oE "[4-6]\.[0-9]{1,3}\.[0-9]{1,3}")" >> $GITHUB_ENV
+    - name: 获取内核版本
+      run: |
+         echo "KVER=$(find ./action_build/dl -maxdepth 1 -name "linux-[4-6]\.*" | sort -r | head -n 1 | grep -oE "[4-6]\.[0-9]{1,3}\.[0-9]{1,3}")" >> $GITHUB_ENV
 
 
     - name: 上传固件到 Artifacts
@@ -194,7 +193,7 @@ jobs:
         touch release.txt
         echo "- 使用源码：${{ env.REPO_URL }}" >> release.txt
         echo "- 使用分支：${{ env.REPO_BRANCH }}" >> release.txt
-       # echo "- 内核版本：${{ env.WRT_KVER }}" >> release.txt
+        echo "- 内核版本：${{ env.KVER }}" >> release.txt
         echo "- 登录地址：${{ env.IP_ADDR }}" >> release.txt
         if [[ "${{ env.BUILD_DOCKERMAN }}" == '-docker' ]]; then
           echo "- 已编译 luci-app-dockerman" >> release.txt
